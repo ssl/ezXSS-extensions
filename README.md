@@ -43,7 +43,7 @@ If this header is missing or incorrect, the extension will not load.
 After the header, you can write your JavaScript code. This code can:
 - Add new functions
 - Override existing functions from the default payload
-- Modify the `ez_rD.extra` object to include additional data in reports
+- Include additional custom data fields in reports
 
 #### Example: Adding Custom Data to Reports
 
@@ -100,6 +100,17 @@ For example:
 - `ez_rD.extra = {"platform": window.navigator.platform};` adds a `platform` field.
 - `ez_rD.extra = "Custom message";` adds an extra field with the string value.
 
+#### The ez_a(k,v) Function
+
+The `ez_a(k,v)` function is used to add data to the `extra` field without overwriting existing data. This is particularly useful when multiple extensions need to contribute to the extra field.
+
+The function can be used in two ways:
+
+1. **Object format**: `ez_a({"key": "value", "another_key": "another_value"})`
+2. **Key-value format**: `ez_a("key", "value")`
+
+This function ensures that data from multiple extensions is merged together rather than one extension overwriting another's data.
+
 ---
 
 ## Installing Extensions
@@ -140,6 +151,7 @@ The default payload includes the following functions:
 | `ez_aE(t, e, n)`   | Attaches events cross-browser.                                              |
 | `ez_nW()`          | Executes custom and global JS before sending.                               |
 | `ez_dr2(z)`        | Executes JS after the report is sent.                                       |
+| `ez_a(k,v)`        | Adds data to the extra field without overwriting existing data.             |
 
 ### Persist Functions
 
@@ -175,9 +187,11 @@ When the persistence feature is enabled, additional functions are included in th
 
 This repository includes several example extensions to help you get started:
 
-1. **`platform-info.js`**: Adds the user's platform to the report.
-2. **`custom-dom-collector.js`**: Modifies the DOM collection to only include the body HTML.
-3. **`alert-on-load.js`**: Displays an alert when the payload is loaded (for testing).
+1. **`platform-info.js`**: Adds the user's platform to the report using the `ez_a` function.
+2. **`enhanced-platform-info.js`**: System and browser platform info with fingerprinting
+3. **`custom-dom-collector.js`**: Modifies the DOM collection to only include the body HTML.
+4. **`alert-on-load.js`**: Displays an alert when the payload is loaded (for testing).
+5. **`security-scanner.js`**: Security analysis including headers, CSP, cookies, secrets and vulnerability detection
 
 Feel free to use these examples as templates for your own extensions.
 

@@ -26,4 +26,4 @@ function get_info() {
         }
     }
 }
-ez_rD.extra = get_info();
+ez_a(get_info());
