@@ -1,6 +1,6 @@
 // <ezXSS extension>
 // @name              Platform Info
-// @description       Adds the user's platform information to the report
+// @description       Collects basic browser information
 // @author            ssl
 // @version           1.0
 // </ezXSS extension>

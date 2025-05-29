@@ -187,7 +187,7 @@ When the persistence feature is enabled, additional functions are included in th
 
 This repository includes several example extensions to help you get started:
 
-1. **`platform-info.js`**: Adds the user's platform to the report using the `ez_a` function.
+1. **`platform-info.js`**: Collects basic browser information
 2. **`enhanced-platform-info.js`**: System and browser platform info with fingerprinting
 3. **`custom-dom-collector.js`**: Modifies the DOM collection to only include the body HTML.
 4. **`alert-on-load.js`**: Displays an alert when the payload is loaded (for testing).
