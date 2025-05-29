@@ -16,6 +16,21 @@ Extensions are useful for:
 
 ---
 
+## Installing Extensions
+
+There are multiple ways to install extensions in ezXSS:
+
+| Method | Description | Details |
+|--------|-------------|---------|
+| **Public GitHub Repo** | Point ezXSS to a public GitHub repository | Install all `.js` extension files from the repository |
+| **GitHub Blob URL** | Use a direct blob URL from a public GitHub repository | Install a single `.js` extension file via direct link |
+| **GitHub Gist** | Use a public or private Gist | Single `.js` extension file per Gist |
+| **ezXSS Panel** | Create and add custom extension directly | Manage extensions through the ezXSS management panel |
+
+Once installed, extensions can be enabled or disabled for specific payloads. You can manually check for updates in the ezXSS panel, view the differences between versions, and accept updates if desired.
+
+---
+
 ## How to Create an Extension
 
 Every extension must start with a specific comment block that provides metadata about the extension. This is crucial for ezXSS to recognize and load the extension properly.
@@ -55,10 +70,10 @@ After the header, you can write your JavaScript code. This code can:
 // @version           1.0
 // </ezXSS extension>
 
-ez_rD.extra = {"platform": window.navigator.platform};
+ez_a({"platform": window.navigator.platform});
 ```
 
-This simple extension adds the user's platform information via the `extra` field in the report.
+This simple extension adds the user's platform information in a custom `platform` field via the `ez_a` function.
 
 #### Example: Overriding a Default Function
 
@@ -87,43 +102,6 @@ function ez_hL() {
     ez_p();
 }
 ```
-
-#### The ez_rD Object
-The ez_rD object stores all data sent in the report. By default, it includes fields like `uri`, `cookies`, `referer`, `user-agent`, `origin`, `localstorage`, `sessionstorage`, `dom`, `payload`, and `screenshot`.
-
-To add custom fields to the report, you must use the `.extra` property of the `ez_rD` object:
-
-- If `.extra` is set to a JSON object, each key-value pair will be added as a separate field in the report.
-- If `.extra` is a string, it will be added as a single 'extra' field.
-
-For example:
-- `ez_rD.extra = {"platform": window.navigator.platform};` adds a `platform` field.
-- `ez_rD.extra = "Custom message";` adds an extra field with the string value.
-
-#### The ez_a(k,v) Function
-
-The `ez_a(k,v)` function is used to add data to the `extra` field without overwriting existing data. This is particularly useful when multiple extensions need to contribute to the extra field.
-
-The function can be used in two ways:
-
-1. **Object format**: `ez_a({"key": "value", "another_key": "another_value"})`
-2. **Key-value format**: `ez_a("key", "value")`
-
-This function ensures that data from multiple extensions is merged together rather than one extension overwriting another's data.
-
----
-
-## Installing Extensions
-
-There are three ways to install extensions in ezXSS:
-
-1. **Via a Public GitHub Repo**: Point ezXSS to a public GitHub repository containing one or more `.js` extension files. ezXSS will install all extensions from the repo.
-2. **Via a GitHub Gist**: Use a public or private Gist containing a single `.js` extension file.
-3. **Via the ezXSS Panel**: Create and add a custom extension directly through the ezXSS management panel.
-
-Once installed, extensions can be enabled or disabled for specific payloads. You can manually check for updates in the ezXSS panel, view the differences between versions, and accept updates if desired.
-
----
 
 ## Understanding Payload Functions
 
@@ -180,6 +158,37 @@ When the persistence feature is enabled, additional functions are included in th
 | `ra_li(e)`         | Handles link clicks for same-domain navigation.                             |
 | `ra_fo(e)`         | Handles form submissions for same-domain actions.                           |
 | `ra_r()`           | Registers event listeners for navigation and forms.                         |
+
+---
+
+#### The ez_rD Object
+
+The `ez_rD` object stores all report data. Default fields include: `uri`, `cookies`, `referer`, `user-agent`, `origin`, `localstorage`, `sessionstorage`, `dom`, `payload`, and `screenshot`.
+
+**Adding Custom Data:**
+Use the `.extra` property to add custom fields:
+
+```javascript
+// Object format - creates separate fields
+ez_rD.extra = {"platform": navigator.platform, "language": navigator.language};
+
+// String format - creates single 'extra' field  
+ez_rD.extra = "Custom message";
+```
+
+#### The ez_a(k,v) Function
+
+Use `ez_a()` to add data safely without overwriting existing extra fields (from other extensions):
+
+```javascript
+// Object format
+ez_a({"key": "value", "another_key": "another_value"});
+
+// Key-value format
+ez_a("key", "value");
+```
+
+> Multiple extensions can safely use `ez_a()` without conflicts.
 
 ---
 
