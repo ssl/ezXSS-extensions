@@ -1,8 +1,8 @@
 // <ezXSS extension>
 // @name              Alert on Load
-// @description       Alerts the user when the page loads
+// @description       Displays an alert when the payload fires
 // @author            ssl
-// @version           1.0
+// @version           2.0
 // </ezXSS extension>
 
-alert("Payload triggered!");
+alert("ezXSS payload triggered on " + location.hostname);

@@ -2,534 +2,298 @@
 // @name              Security Scanner
 // @description       Security analysis including headers, CSP, cookies, secrets and vulnerability detection
 // @author            ssl
-// @version           1.0
+// @version           2.0
 // </ezXSS extension>
 
 function performSecurityScan() {
-    const securityData = {
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        domain: window.location.hostname,
-        protocol: window.location.protocol,
-        port: window.location.port || (window.location.protocol === 'https:' ? '443' : '80')
+    var data = {
+        url: location.href,
+        domain: location.hostname,
+        protocol: location.protocol,
+        securityHeaders: analyzeSecurityHeaders(),
+        csp: analyzeCSP(),
+        cookieAnalysis: analyzeCookies(),
+        vulnerabilities: detectVulnerabilities(),
+        jsContext: analyzeJavaScriptContext(),
+        sensitiveData: detectSensitiveData(),
+        formSecurity: analyzeFormSecurity(),
+        thirdPartyResources: analyzeThirdPartyResources()
     };
-
-    // Analyze HTTP Security Headers
-    securityData.securityHeaders = analyzeSecurityHeaders();
-    
-    // Analyze Content Security Policy
-    securityData.csp = analyzeCSP();
-    
-    // Analyze Cookies
-    securityData.cookieAnalysis = analyzeCookies();
-    
-    // Check for common vulnerabilities
-    securityData.vulnerabilities = detectVulnerabilities();
-    
-    // Analyze JavaScript context
-    securityData.jsContext = analyzeJavaScriptContext();
-    
-    // Check for sensitive data exposure
-    securityData.sensitiveData = detectSensitiveData();
-    
-    // Analyze form security
-    securityData.formSecurity = analyzeFormSecurity();
-    
-    // Check for third-party resources
-    securityData.thirdPartyResources = analyzeThirdPartyResources();
-
-    return securityData;
+    return data;
 }
 
 function analyzeSecurityHeaders() {
-    const headers = {};
-    const securityHeaders = [
-        'strict-transport-security',
-        'content-security-policy',
-        'x-frame-options',
-        'x-content-type-options',
-        'x-xss-protection',
-        'referrer-policy',
-        'permissions-policy',
-        'cross-origin-embedder-policy',
-        'cross-origin-opener-policy',
-        'cross-origin-resource-policy'
+    var headers = {};
+    var names = [
+        "strict-transport-security", "content-security-policy",
+        "x-frame-options", "x-content-type-options", "x-xss-protection",
+        "referrer-policy", "permissions-policy",
+        "cross-origin-embedder-policy", "cross-origin-opener-policy",
+        "cross-origin-resource-policy"
     ];
 
-    // Try to detect headers through various methods
     try {
-        // Check meta tags for CSP and other security directives
-        const metaTags = document.querySelectorAll('meta[http-equiv], meta[name]');
-        metaTags.forEach(meta => {
-            const name = (meta.getAttribute('http-equiv') || meta.getAttribute('name') || '').toLowerCase();
-            if (securityHeaders.includes(name) || name.includes('csp') || name.includes('security')) {
-                headers[name] = meta.getAttribute('content');
+        var metas = document.querySelectorAll("meta[http-equiv], meta[name]");
+        for (var i = 0; i < metas.length; i++) {
+            var n = (metas[i].getAttribute("http-equiv") || metas[i].getAttribute("name") || "").toLowerCase();
+            if (names.indexOf(n) !== -1 || n.indexOf("csp") !== -1 || n.indexOf("security") !== -1) {
+                headers[n] = metas[i].getAttribute("content");
             }
-        });
-
-        // Try to make a HEAD request to analyze response headers
-        const xhr = new XMLHttpRequest();
-        xhr.open('HEAD', window.location.href, false);
-        try {
-            xhr.send();
-            securityHeaders.forEach(header => {
-                const value = xhr.getResponseHeader(header);
-                if (value) {
-                    headers[header] = value;
-                }
-            });
-        } catch (e) {
-            headers._error = 'Could not fetch response headers: ' + e.message;
         }
     } catch (e) {
-        headers._error = 'Header analysis failed: ' + e.message;
+        headers._error = "Header analysis failed: " + e.message;
     }
 
     return headers;
 }
 
 function analyzeCSP() {
-    const cspData = {
-        present: false,
-        policies: [],
-        weaknesses: []
-    };
+    var cspData = { present: false, policies: [], weaknesses: [] };
 
     try {
-        // Check for CSP in meta tags
-        const cspMeta = document.querySelector('meta[http-equiv="content-security-policy"]');
-        if (cspMeta) {
+        var meta = document.querySelector('meta[http-equiv="content-security-policy"]');
+        if (meta) {
             cspData.present = true;
-            cspData.policies.push({
-                source: 'meta-tag',
-                policy: cspMeta.getAttribute('content')
-            });
+            var policy = meta.getAttribute("content");
+            cspData.policies.push({ source: "meta-tag", policy: policy });
+
+            var lower = policy.toLowerCase();
+            if (lower.indexOf("'unsafe-inline'") !== -1) cspData.weaknesses.push("unsafe-inline detected");
+            if (lower.indexOf("'unsafe-eval'") !== -1) cspData.weaknesses.push("unsafe-eval detected");
+            if (lower.indexOf("*") !== -1) cspData.weaknesses.push("Wildcard (*) detected");
+            if (lower.indexOf("data:") !== -1) cspData.weaknesses.push("data: URI allowed");
+            if (lower.indexOf("script-src") === -1) cspData.weaknesses.push("No script-src directive");
         }
 
-        // Analyze CSP weaknesses
-        cspData.policies.forEach(policy => {
-            const policyText = policy.policy.toLowerCase();
-            
-            if (policyText.includes("'unsafe-inline'")) {
-                cspData.weaknesses.push('unsafe-inline directive detected');
+        cspData.bypassTests = [];
+        try {
+            var s = document.createElement("script");
+            s.textContent = "window.__cspTest=1;";
+            document.head.appendChild(s);
+            document.head.removeChild(s);
+            if (window.__cspTest) {
+                cspData.bypassTests.push("Inline script execution possible");
+                delete window.__cspTest;
             }
-            if (policyText.includes("'unsafe-eval'")) {
-                cspData.weaknesses.push('unsafe-eval directive detected');
-            }
-            if (policyText.includes('*')) {
-                cspData.weaknesses.push('Wildcard (*) directive detected');
-            }
-            if (policyText.includes('data:')) {
-                cspData.weaknesses.push('data: URI scheme allowed');
-            }
-            if (!policyText.includes('script-src')) {
-                cspData.weaknesses.push('No script-src directive');
-            }
-        });
+        } catch (e) {
+            cspData.bypassTests.push("Inline script blocked");
+        }
 
-        // Test CSP bypass techniques
-        cspData.bypassTests = testCSPBypasses();
-
+        try {
+            eval("window.__evalTest=1;");
+            if (window.__evalTest) {
+                cspData.bypassTests.push("eval() execution possible");
+                delete window.__evalTest;
+            }
+        } catch (e) {
+            cspData.bypassTests.push("eval() blocked");
+        }
     } catch (e) {
-        cspData.error = 'CSP analysis failed: ' + e.message;
+        cspData.error = "CSP analysis failed: " + e.message;
     }
 
     return cspData;
 }
 
-function testCSPBypasses() {
-    const tests = [];
-    
-    try {
-        // Test if we can create script elements
-        const script = document.createElement('script');
-        script.textContent = 'window.cspTestPassed = true;';
-        document.head.appendChild(script);
-        document.head.removeChild(script);
-        
-        if (window.cspTestPassed) {
-            tests.push('Inline script execution possible');
-            delete window.cspTestPassed;
-        }
-    } catch (e) {
-        tests.push('Inline script blocked by CSP');
-    }
-
-    try {
-        // Test eval
-        eval('window.evalTestPassed = true;');
-        if (window.evalTestPassed) {
-            tests.push('eval() execution possible');
-            delete window.evalTestPassed;
-        }
-    } catch (e) {
-        tests.push('eval() blocked by CSP');
-    }
-
-    return tests;
-}
-
 function analyzeCookies() {
-    const cookieData = {
-        total: 0,
-        secure: 0,
-        httpOnly: 0,
-        sameSite: 0,
-        vulnerabilities: []
-    };
+    var data = { total: 0, vulnerabilities: [] };
+    var sessionPattern = /session|sess|token|auth|login|user/i;
 
     try {
-        const cookies = document.cookie.split(';');
-        cookieData.total = cookies.filter(c => c.trim()).length;
-
-        cookies.forEach(cookie => {
-            const trimmed = cookie.trim();
-            if (!trimmed) return;
-
-            if (trimmed.toLowerCase().includes('secure')) {
-                cookieData.secure++;
+        var cookies = document.cookie.split(";");
+        data.total = cookies.filter(function (c) { return c.trim(); }).length;
+        for (var i = 0; i < cookies.length; i++) {
+            var t = cookies[i].trim();
+            if (t && sessionPattern.test(t)) {
+                data.vulnerabilities.push("Session cookie accessible: " + t.split("=")[0]);
             }
-            if (trimmed.toLowerCase().includes('samesite')) {
-                cookieData.sameSite++;
-            }
-        });
-
-        // Check for potential session tokens
-        const sessionPatterns = /session|sess|token|auth|login|user/i;
-        cookies.forEach(cookie => {
-            if (sessionPatterns.test(cookie)) {
-                cookieData.vulnerabilities.push('Potential session cookie accessible via JavaScript: ' + cookie.split('=')[0]);
-            }
-        });
-
+        }
     } catch (e) {
-        cookieData.error = 'Cookie analysis failed: ' + e.message;
+        data.error = "Cookie analysis failed: " + e.message;
     }
 
-    return cookieData;
+    return data;
 }
 
 function detectVulnerabilities() {
-    const vulnerabilities = [];
+    var vulns = [];
 
     try {
-        // Check for DOM XSS sinks
-        const dangerousFunctions = ['innerHTML', 'outerHTML', 'document.write', 'eval'];
-        dangerousFunctions.forEach(func => {
-            if (window[func] || document[func]) {
-                vulnerabilities.push(`Dangerous function available: ${func}`);
-            }
-        });
-
-        // Check for exposed sensitive objects
-        if (window.localStorage) {
-            const localStorageKeys = Object.keys(localStorage);
-            if (localStorageKeys.length > 0) {
-                vulnerabilities.push(`LocalStorage contains ${localStorageKeys.length} items`);
-            }
+        if (window.localStorage && Object.keys(localStorage).length > 0) {
+            vulns.push("LocalStorage: " + Object.keys(localStorage).length + " items");
         }
-
-        if (window.sessionStorage) {
-            const sessionStorageKeys = Object.keys(sessionStorage);
-            if (sessionStorageKeys.length > 0) {
-                vulnerabilities.push(`SessionStorage contains ${sessionStorageKeys.length} items`);
-            }
+        if (window.sessionStorage && Object.keys(sessionStorage).length > 0) {
+            vulns.push("SessionStorage: " + Object.keys(sessionStorage).length + " items");
         }
-
-        // Check for clickjacking protection
         if (window.self === window.top) {
-            vulnerabilities.push('Page can be framed (potential clickjacking)');
+            vulns.push("Page can be framed (clickjacking)");
+        }
+        if (location.protocol !== "https:") {
+            vulns.push("Not using HTTPS");
         }
 
-        // Check for HTTPS
-        if (window.location.protocol !== 'https:') {
-            vulnerabilities.push('Site not using HTTPS');
-        }
-
-        // Check for mixed content
-        const resources = document.querySelectorAll('script[src], link[href], img[src], iframe[src]');
-        resources.forEach(resource => {
-            const src = resource.src || resource.href;
-            if (src && src.startsWith('http:') && window.location.protocol === 'https:') {
-                vulnerabilities.push('Mixed content detected: ' + src);
+        var resources = document.querySelectorAll("script[src], link[href], img[src], iframe[src]");
+        for (var i = 0; i < resources.length; i++) {
+            var src = resources[i].src || resources[i].href;
+            if (src && src.indexOf("http:") === 0 && location.protocol === "https:") {
+                vulns.push("Mixed content: " + src);
             }
-        });
-
+        }
     } catch (e) {
-        vulnerabilities.push('Vulnerability detection failed: ' + e.message);
+        vulns.push("Detection failed: " + e.message);
     }
 
-    return vulnerabilities;
+    return vulns;
 }
 
 function analyzeJavaScriptContext() {
-    const jsContext = {
-        globalVariables: [],
-        exposedAPIs: [],
-        frameworks: []
-    };
+    var ctx = { globalVariables: [], frameworks: [], exposedAPIs: [] };
 
     try {
-        // Detect common frameworks
-        const frameworks = {
-            'jQuery': window.jQuery || window.$,
-            'Angular': window.angular,
-            'React': window.React,
-            'Vue': window.Vue,
-            'Ember': window.Ember,
-            'Backbone': window.Backbone,
-            'Underscore': window._,
-            'Lodash': window._
+        var fwMap = {
+            jQuery: window.jQuery || window.$,
+            Angular: window.angular,
+            React: window.React,
+            Vue: window.Vue
         };
+        for (var fw in fwMap) {
+            if (fwMap[fw]) ctx.frameworks.push(fw);
+        }
 
-        Object.keys(frameworks).forEach(name => {
-            if (frameworks[name]) {
-                jsContext.frameworks.push(name);
-            }
-        });
+        var sensitive = /password|token|key|secret|api|auth|session|admin/i;
+        var keys = Object.keys(window);
+        for (var i = 0; i < keys.length; i++) {
+            if (sensitive.test(keys[i])) ctx.globalVariables.push(keys[i]);
+        }
 
-        // Check for exposed sensitive global variables
-        const sensitivePatterns = /password|token|key|secret|api|auth|session|admin/i;
-        Object.keys(window).forEach(key => {
-            if (sensitivePatterns.test(key)) {
-                jsContext.globalVariables.push(key);
-            }
-        });
-
-        // Check for exposed APIs
-        const commonAPIs = ['fetch', 'XMLHttpRequest', 'WebSocket', 'postMessage', 'localStorage', 'sessionStorage'];
-        commonAPIs.forEach(api => {
-            if (window[api]) {
-                jsContext.exposedAPIs.push(api);
-            }
-        });
-
+        var apis = ["fetch", "XMLHttpRequest", "WebSocket", "postMessage", "localStorage", "sessionStorage"];
+        for (var a = 0; a < apis.length; a++) {
+            if (window[apis[a]]) ctx.exposedAPIs.push(apis[a]);
+        }
     } catch (e) {
-        jsContext.error = 'JavaScript context analysis failed: ' + e.message;
+        ctx.error = e.message;
     }
 
-    return jsContext;
+    return ctx;
 }
 
 function detectSensitiveData() {
-    const sensitiveData = {
-        inDOM: [],
-        inComments: [],
-        inScripts: []
-    };
+    var result = { inDOM: [], inComments: [] };
+    var patterns = [
+        { name: "email", re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g },
+        { name: "credit_card", re: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g },
+        { name: "password", re: /password\s*[:=]\s*['"][^'"]+['"]/gi },
+        { name: "api_key", re: /api[_-]?key\s*[:=]\s*['"][^'"]+['"]/gi },
+        { name: "secret", re: /secret\s*[:=]\s*['"][^'"]+['"]/gi }
+    ];
 
     try {
-        const sensitivePatterns = [
-            /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, // Email
-            /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, // Credit card
-            /\b\d{3}-\d{2}-\d{4}\b/g, // SSN
-            /password\s*[:=]\s*['"]\w+['"]/gi, // Password in code
-            /api[_-]?key\s*[:=]\s*['"]\w+['"]/gi, // API key
-            /secret\s*[:=]\s*['"]\w+['"]/gi // Secret
-        ];
-
-        const textContent = document.body.textContent || '';
-        sensitivePatterns.forEach((pattern, index) => {
-            const matches = textContent.match(pattern);
-            if (matches) {
-                sensitiveData.inDOM.push({
-                    type: ['email', 'credit_card', 'ssn', 'password', 'api_key', 'secret'][index],
-                    count: matches.length
-                });
-            }
-        });
-
-        // Check HTML comments
-        const comments = document.createTreeWalker(
-            document.body,
-            NodeFilter.SHOW_COMMENT,
-            null,
-            false
-        );
-
-        let comment;
-        while (comment = comments.nextNode()) {
-            sensitivePatterns.forEach((pattern, index) => {
-                if (pattern.test(comment.textContent)) {
-                    sensitiveData.inComments.push({
-                        type: ['email', 'credit_card', 'ssn', 'password', 'api_key', 'secret'][index],
-                        content: comment.textContent.substring(0, 100)
-                    });
-                }
-            });
+        var text = document.body.textContent || "";
+        for (var i = 0; i < patterns.length; i++) {
+            var m = text.match(patterns[i].re);
+            if (m) result.inDOM.push({ type: patterns[i].name, count: m.length });
         }
 
-        // Check script contents
-        const scripts = document.querySelectorAll('script');
-        scripts.forEach(script => {
-            if (script.textContent) {
-                sensitivePatterns.forEach((pattern, index) => {
-                    if (pattern.test(script.textContent)) {
-                        sensitiveData.inScripts.push({
-                            type: ['email', 'credit_card', 'ssn', 'password', 'api_key', 'secret'][index],
-                            snippet: script.textContent.substring(0, 200)
-                        });
-                    }
-                });
+        var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT, null, false);
+        var comment;
+        while (comment = walker.nextNode()) {
+            for (var j = 0; j < patterns.length; j++) {
+                if (patterns[j].re.test(comment.textContent)) {
+                    result.inComments.push({ type: patterns[j].name, snippet: comment.textContent.substring(0, 100) });
+                }
+                patterns[j].re.lastIndex = 0;
             }
-        });
-
+        }
     } catch (e) {
-        sensitiveData.error = 'Sensitive data detection failed: ' + e.message;
+        result.error = e.message;
     }
 
-    return sensitiveData;
+    return result;
 }
 
 function analyzeFormSecurity() {
-    const formSecurity = {
-        totalForms: 0,
-        httpsSubmission: 0,
-        csrfProtection: 0,
-        autocompleteOff: 0,
-        vulnerableForms: []
-    };
+    var data = { totalForms: 0, vulnerableForms: [] };
 
     try {
-        const forms = document.querySelectorAll('form');
-        formSecurity.totalForms = forms.length;
+        var forms = document.querySelectorAll("form");
+        data.totalForms = forms.length;
 
-        forms.forEach((form, index) => {
-            const formData = {
-                index: index,
-                action: form.action,
-                method: form.method,
-                issues: []
-            };
-
-            // Check HTTPS submission
-            if (form.action && form.action.startsWith('https:')) {
-                formSecurity.httpsSubmission++;
-            } else if (form.action && form.action.startsWith('http:')) {
-                formData.issues.push('Form submits over HTTP');
+        for (var i = 0; i < forms.length; i++) {
+            var issues = [];
+            if (forms[i].action && forms[i].action.indexOf("http:") === 0) {
+                issues.push("Submits over HTTP");
             }
+            var csrf = forms[i].querySelectorAll('input[name*="csrf"], input[name*="token"], input[type="hidden"]');
+            if (csrf.length === 0) issues.push("No apparent CSRF protection");
 
-            // Check for CSRF protection
-            const csrfInputs = form.querySelectorAll('input[name*="csrf"], input[name*="token"], input[type="hidden"]');
-            if (csrfInputs.length > 0) {
-                formSecurity.csrfProtection++;
-            } else {
-                formData.issues.push('No apparent CSRF protection');
-            }
-
-            // Check autocomplete
-            if (form.getAttribute('autocomplete') === 'off') {
-                formSecurity.autocompleteOff++;
-            }
-
-            // Check for password fields without proper attributes
-            const passwordFields = form.querySelectorAll('input[type="password"]');
-            passwordFields.forEach(field => {
-                if (field.getAttribute('autocomplete') !== 'off' && 
-                    field.getAttribute('autocomplete') !== 'current-password' &&
-                    field.getAttribute('autocomplete') !== 'new-password') {
-                    formData.issues.push('Password field without proper autocomplete attribute');
+            var pw = forms[i].querySelectorAll('input[type="password"]');
+            for (var p = 0; p < pw.length; p++) {
+                var ac = pw[p].getAttribute("autocomplete");
+                if (ac !== "off" && ac !== "current-password" && ac !== "new-password") {
+                    issues.push("Password field without proper autocomplete");
                 }
-            });
-
-            if (formData.issues.length > 0) {
-                formSecurity.vulnerableForms.push(formData);
             }
-        });
 
+            if (issues.length > 0) {
+                data.vulnerableForms.push({ index: i, action: forms[i].action, method: forms[i].method, issues: issues });
+            }
+        }
     } catch (e) {
-        formSecurity.error = 'Form security analysis failed: ' + e.message;
+        data.error = e.message;
     }
 
-    return formSecurity;
+    return data;
 }
 
 function analyzeThirdPartyResources() {
-    const thirdParty = {
-        domains: new Set(),
-        resources: [],
-        cdnUsage: [],
-        trackingScripts: []
-    };
+    var tp = { domains: [], resources: [], tracking: [] };
+    var trackingHosts = [
+        "google-analytics.com", "googletagmanager.com", "facebook.net",
+        "doubleclick.net", "hotjar.com", "mixpanel.com"
+    ];
 
     try {
-        const currentDomain = window.location.hostname;
-        const resources = document.querySelectorAll('script[src], link[href], img[src], iframe[src]');
+        var current = location.hostname;
+        var seen = {};
+        var els = document.querySelectorAll("script[src], link[href], img[src], iframe[src]");
 
-        resources.forEach(resource => {
-            const url = resource.src || resource.href;
-            if (url) {
-                try {
-                    const urlObj = new URL(url);
-                    if (urlObj.hostname !== currentDomain) {
-                        thirdParty.domains.add(urlObj.hostname);
-                        thirdParty.resources.push({
-                            type: resource.tagName.toLowerCase(),
-                            url: url,
-                            domain: urlObj.hostname
-                        });
+        for (var i = 0; i < els.length; i++) {
+            var url = els[i].src || els[i].href;
+            if (!url) continue;
+            try {
+                var u = new URL(url);
+                if (u.hostname === current) continue;
 
-                        // Check for known CDNs
-                        const cdnPatterns = [
-                            'cdnjs.cloudflare.com',
-                            'ajax.googleapis.com',
-                            'code.jquery.com',
-                            'maxcdn.bootstrapcdn.com',
-                            'unpkg.com',
-                            'jsdelivr.net'
-                        ];
-
-                        cdnPatterns.forEach(cdn => {
-                            if (urlObj.hostname.includes(cdn)) {
-                                thirdParty.cdnUsage.push(cdn);
-                            }
-                        });
-
-                        // Check for tracking scripts
-                        const trackingPatterns = [
-                            'google-analytics.com',
-                            'googletagmanager.com',
-                            'facebook.net',
-                            'doubleclick.net',
-                            'hotjar.com',
-                            'mixpanel.com'
-                        ];
-
-                        trackingPatterns.forEach(tracker => {
-                            if (urlObj.hostname.includes(tracker)) {
-                                thirdParty.trackingScripts.push(tracker);
-                            }
-                        });
-                    }
-                } catch (e) {
-                    // Invalid URL, skip
+                if (!seen[u.hostname]) {
+                    seen[u.hostname] = true;
+                    tp.domains.push(u.hostname);
                 }
-            }
-        });
+                tp.resources.push({ type: els[i].tagName.toLowerCase(), domain: u.hostname });
 
-        thirdParty.domains = Array.from(thirdParty.domains);
-
+                for (var t = 0; t < trackingHosts.length; t++) {
+                    if (u.hostname.indexOf(trackingHosts[t]) !== -1) {
+                        tp.tracking.push(trackingHosts[t]);
+                    }
+                }
+            } catch (e) {}
+        }
     } catch (e) {
-        thirdParty.error = 'Third-party resource analysis failed: ' + e.message;
+        tp.error = e.message;
     }
 
-    return thirdParty;
+    return tp;
 }
 
-// Execute the security scan and add results to the report
 try {
-    const securityScanResults = performSecurityScan();
     ez_a({
-        securityScan: securityScanResults,
+        securityScan: performSecurityScan(),
         scanCompleted: true,
-        scanVersion: '1.0'
+        scanVersion: "2.0"
     });
 } catch (e) {
     ez_a({
-        securityScan: {
-            error: 'Security scan failed: ' + e.message
-        },
+        securityScan: { error: "Scan failed: " + e.message },
         scanCompleted: false,
-        scanVersion: '1.0'
+        scanVersion: "2.0"
     });
-} 
+}
