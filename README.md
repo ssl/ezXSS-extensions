@@ -129,7 +129,7 @@ These functions were introduced in ezXSS 5 and are **not available** in 4.x:
 | `ez_bid` | 5.0+ | Per-pageload beacon nonce: ties this report to any beacon probes from this page. |
 | `ez_bb` | 5.0+ | Beacon URL base (`protocol://domain`). |
 | `ez_mb` | 5.0+ | Max callback body in bytes before dom/screenshot are split off (0 = off). |
-| `ez_cspOn` | 5.0+ | Whether to read the target page's Content-Security-Policy. |
+| `ez_nc` | 4.3+ | The noCollect list: field names disabled for this payload (consumed by `ez_s()`). On 5.0+, add `'csp'` to this list to skip Content-Security-Policy collection. |
 | `ez_cv` | 5.0+ | First CSP violation's policy, used as fallback when headers can't be read. |
 
 ### Beacon Fallback Functions (5.0+)
@@ -177,7 +177,7 @@ When the persistence feature is enabled, additional functions are included to ma
 
 ### The ez_rD Object (4.3+)
 
-The `ez_rD` object stores all report data. Default fields include: `uri`, `cookies`, `referer`, `user-agent`, `origin`, `localstorage`, `sessionstorage`, `dom`, `payload`, and `screenshot`. In **5.0+**, `csp` is also collected when enabled.
+The `ez_rD` object stores all report data. Default fields include: `uri`, `cookies`, `referer`, `user-agent`, `origin`, `localstorage`, `sessionstorage`, `dom`, `payload`, and `screenshot`. In **5.0+**, `csp` is also collected, unless `'csp'` is present in the noCollect list (`ez_nc`).
 
 **Adding Custom Data:**
 Use the `.extra` property to add custom fields:
